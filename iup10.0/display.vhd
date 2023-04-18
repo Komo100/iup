@@ -32,7 +32,7 @@ use IEEE.std_logic_unsigned.all;
 --use UNISIM.VComponents.all;
 
 entity display is
-Port ( clk_i : in std_logic;
+Port ( clk_disp : in std_logic;
        red_o : out std_logic_vector (3 downto 0);
        green_o : out std_logic_vector (3 downto 0);
        blue_o : out std_logic_vector (3 downto 0);
@@ -109,44 +109,39 @@ constant v_total : integer := 525;
 signal h_pos_vis : integer;
 signal v_pos_vis : integer;
 
-signal h_picture_pos : integer := 130; -- upper left corner of the picture
-signal v_picture_pos : integer := 20;
+signal h_picture_pos : integer := 200; -- upper left corner of the picture
+signal v_picture_pos : integer := 100;
 
 constant picture_width : integer := 256;
 constant picture_height : integer := 96;
 begin
-    h_pos_vis <= h_position - h_pulse - h_front;
-    v_pos_vis <= v_position - v_pulse - v_front;
     rom_bitmap : vga_bitmap
         PORT MAP (
-            clka => clk_i,
+            clka => clk_disp,
             addra => color_address,
             douta => color
         );
-    process(clk_i)
+    process(clk_disp)
     begin
-        if rising_edge(clk_i) then
-            if v_position < v_pulse + v_front or v_position > v_total - v_back or --outside of the visible area
-               h_position < h_pulse + h_front or h_position > h_total - h_back then
+        if rising_edge(clk_disp) then
+            if v_position < v_pulse + v_back or v_position >= v_total - v_front or --outside of the visible area
+               h_position < h_pulse + h_back or h_position >= h_total - h_front then
                 red_o <= "0000"; green_o <= "0000"; blue_o <= "0000";
             else
-                if v_pos_vis < v_picture_pos or v_pos_vis >= v_picture_pos + picture_height then --check if below or above the picture
+                if v_position < v_picture_pos or v_position >= v_picture_pos + picture_height then --check if below or above the picture
                     background_color(sw5_i, sw6_i, sw7_i, red_o, green_o, blue_o);
-                    color_address <= "10111111110101"; -- starting address - 1
-                elsif h_pos_vis < h_picture_pos - 1 or h_pos_vis > h_picture_pos + picture_width  then --check if to the right or to the left
+                    color_address <= "10111111110111"; -- starting address
+                elsif h_position < h_picture_pos or h_position >= h_picture_pos + picture_width  then --check if to the right or to the left
                     background_color(sw5_i, sw6_i, sw7_i, red_o, green_o, blue_o);
                 else
                     if h_position = h_picture_pos + picture_width then --end of a line
-                        color_address <= color_address - "00000100000001";
+                        color_address <= color_address - "00000100000000";
                         background_color(sw5_i, sw6_i, sw7_i, red_o, green_o, blue_o);
-                    elsif h_position = h_picture_pos - 1 then --beginning of a line
+                    elsif ((h_position - h_picture_pos) mod 2) = 1 then -- 1 clock cycle before new pixel
                         color_address <= color_address + "00000000000001";
-                        background_color(sw5_i, sw6_i, sw7_i, red_o, green_o, blue_o);
-                    elsif ((h_picture_pos - h_position) mod 2) = 1 then -- 1 clock cycle before new pixel
-                        color_address <= color_address + "00000000000001";
-                        hex_to_color(color (3 downto 0), red_o, green_o, blue_o);
-                    else
                         hex_to_color(color (7 downto 4), red_o, green_o, blue_o);
+                    else
+                        hex_to_color(color (3 downto 0), red_o, green_o, blue_o);
                     end if;
                 end if;
             end if;
@@ -157,22 +152,22 @@ begin
     begin
         if rising_edge(v_sync) then
             if btn_i(0) = '1' then
-                if h_picture_pos >= h_pulse + h_front then
+                if h_picture_pos > h_pulse + h_back then
                     h_picture_pos <= h_picture_pos - 1; -- to the left
                 end if;
             end if; 
-            if btn_i(1) = '1' then
-                if h_picture_pos + picture_width <= h_total - h_back then
+            if btn_i(3) = '1' then
+                if h_picture_pos + picture_width < h_total - h_front then
                     h_picture_pos <= h_picture_pos + 1; -- to the right
                 end if;
             end if; 
             if btn_i(2) = '1' then
-                if v_picture_pos >= v_pulse + v_front then
+                if v_picture_pos > v_pulse + v_back then
                     v_picture_pos <= v_picture_pos - 1; -- up
                 end if;
             end if;   
-            if btn_i(3) = '1' then
-                if v_picture_pos + picture_height <= v_total + v_back then
+            if btn_i(1) = '1' then
+                if v_picture_pos + picture_height < v_total - v_front then
                     v_picture_pos <= v_picture_pos + 1; -- down
                 end if;
             end if;

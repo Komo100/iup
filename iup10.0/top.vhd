@@ -57,7 +57,7 @@ component sync_driver is
 end component;
 
 component display is
-Port ( clk_i : in std_logic;
+Port ( clk_disp : in std_logic;
        red_o : out std_logic_vector (3 downto 0);
        green_o : out std_logic_vector (3 downto 0);
        blue_o : out std_logic_vector (3 downto 0);
@@ -87,7 +87,7 @@ f0 : sync_driver
     );
 f1 : display
     port map (
-        clk_i => clk,
+        clk_disp => clk,
         red_o => red_o,
         green_o => green_o,
         blue_o => blue_o,
